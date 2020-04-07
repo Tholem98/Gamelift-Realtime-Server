@@ -53,7 +53,7 @@ public class PlayerController : MonoBehaviour
     //    GetComponent<MeshRenderer>().material.color = Color.blue;
     //}
     //[Command]
-    void CmdFire()
+    public void CmdFire()
     {
         GameObject bullet = (GameObject)Instantiate(bulletPrefab,bulletSpawn.position,bulletSpawn.rotation);
         bullet.GetComponent<Rigidbody>().velocity = -bullet.transform.right * 6.0f;

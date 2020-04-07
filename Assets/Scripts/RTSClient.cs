@@ -41,12 +41,15 @@ public class RTSClient : MonoBehaviour
     const int START_COUNTDOWN_OP_CODE = 101; // payload "(float)frogHopTime"
     const int MOVE_PLAYER_OP_CODE = 102;    // payload "(int)playerToMove:(float)distance"
     const int WINNER_DETERMINED_OP_CODE = 103; //payload "(int)winningPlayer:(int)losingPlayer"
+    const int OP_CODE_PLAYER_ACCEPTED = 113;
 
     const int SCENE_READY_OP_CODE = 200;
     const int HOP_OP_CODE = 201;
 
     // reference to the game controller which will render the game state
     //public GameController GameController;
+    public GameObject PlayerPrefab;
+    private GameObject OtherPlayer;
 
     // Start is called before the first frame update
     void Start()
@@ -90,9 +93,12 @@ public class RTSClient : MonoBehaviour
 
     public void DisconnectFromServer()
     {
+        Debug.Log("Trying to disconect");
         if (_client != null && _client.Connected)
         {
             _client.Disconnect();
+            Debug.Log("I guess it disconect successful");
+
         }
     }
 
@@ -107,7 +113,7 @@ public class RTSClient : MonoBehaviour
         {
             // inform server the hop button was pressed by local player
             Debug.Log("SendingEvent: HOP_OP_CODE");
-            _client.SendEvent(201);
+            _client.SendEvent(HOP_OP_CODE);
         }
     }
 
@@ -310,13 +316,15 @@ public class RTSClient : MonoBehaviour
 
             case LOGICAL_PLAYER_OP_CODE:
                 {
+                    Debug.Log($"Trying to instantiate{data}");
+                    OtherPlayer = (GameObject)Instantiate(PlayerPrefab, transform.position+new Vector3(0,1,0), transform.rotation);
                     int logicalPlayer = -1;
                     if (int.TryParse(data, out logicalPlayer))
                     {
+                        Debug.Log("in");
                         if (logicalPlayer == 0 || logicalPlayer == 1)
                         {
                             _logicalPlayerID = logicalPlayer;
-                            Debug.Log($"Logical player ID assigned: {_logicalPlayerID}");
                         }
                         else
                         {
@@ -327,7 +335,7 @@ public class RTSClient : MonoBehaviour
                     {
                         Debug.LogWarning("Unable to parse logicalPlayer!");
                     }
-                    Debug.Log("Move");
+                    //Debug.Log("Move");
                     break;
                 }
 
@@ -349,6 +357,7 @@ public class RTSClient : MonoBehaviour
 
             case MOVE_PLAYER_OP_CODE:
                 {
+                    
                     int logicalPlayer = -1;
                     float distance = 0.0f;
                     string[] parts = data.Split(':');
@@ -381,9 +390,16 @@ public class RTSClient : MonoBehaviour
                     QForMainThread(NotifyWinnerDetermined, winner, loser);
                     break;
                 }
-            case 2:
+            case HOP_OP_CODE:
                 {
                     Debug.Log("Shoot");
+                    OtherPlayer.GetComponent<PlayerController>().CmdFire();
+                    break;
+                }
+            case OP_CODE_PLAYER_ACCEPTED:
+                {
+                    Debug.Log($"Trying to show other player: {data}");
+                    OtherPlayer = (GameObject)Instantiate(PlayerPrefab, transform.position + new Vector3(0, 1, 0), transform.rotation);
                     break;
                 }
         }
