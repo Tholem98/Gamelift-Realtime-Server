@@ -10,16 +10,20 @@ public class PlayerController : MonoBehaviour
 
     public GameObject bulletPrefab;
     public Transform bulletSpawn;
+    private Vector3 currentPos;
+    private Vector3 beforePos;
+    private Quaternion currentRot;
+    private Quaternion beforeRot;
     //public RealTimeClient Client;
     public RTSClient Client;
-    public Camera SceneCamera;
+    //public Camera SceneCamera;
     public Camera PlayerCamera;
 
     // Start is called before the first frame update
 
     void Start()
     {
-        SceneCamera.enabled = false;
+        //SceneCamera.enabled = false;
         PlayerCamera.enabled = true;
         Client.SceneReady();
     }
@@ -37,8 +41,23 @@ public class PlayerController : MonoBehaviour
 
         transform.Rotate(0, x, 0);
         transform.Translate(-z, 0, 0);
-        //Client.handleMovement(transform);
-        
+
+        currentPos = transform.position;
+        currentRot = transform.rotation;
+
+        if (currentRot != beforeRot)
+        {
+            beforeRot = currentRot;
+            Client.handleMovement(transform.position,transform.rotation);
+        }
+
+        if (currentPos != beforePos)
+        {
+            beforePos = currentPos;
+            Client.handleMovement(transform.position, transform.rotation);
+        }
+
+
 
         if (Input.GetKeyDown(KeyCode.Space))
         {

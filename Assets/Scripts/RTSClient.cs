@@ -17,6 +17,7 @@ using System.Text;
 using System.Net.NetworkInformation;
 using System.Net;
 using System.Linq;
+using Random = UnityEngine.Random;
 
 // This data structure is returned by the client service when a game match is found
 [System.Serializable]
@@ -45,6 +46,7 @@ public class RTSClient : MonoBehaviour
 
     const int SCENE_READY_OP_CODE = 200;
     const int HOP_OP_CODE = 201;
+    const int OP_CODE_MORE_PLAYERS = 111;
 
     // reference to the game controller which will render the game state
     //public GameController GameController;
@@ -145,10 +147,31 @@ public class RTSClient : MonoBehaviour
     }
 
     // game server notfies us that we should move a player and by how much
-    public void NotifyMovePlayer(int playerID, float newPosition)
+    public void NotifyMovePlayer(byte[] pos/*int playerID, float newPosition*/)
     {
-        Debug.Log("Move");
+        //Debug.Log("MOVE:");
+        byte[] buff = pos;
+        Vector3 vect = Vector3.zero;
+        vect.x = BitConverter.ToSingle(buff, 0 * sizeof(float));
+        vect.y = BitConverter.ToSingle(buff, 1 * sizeof(float));
+        vect.z = BitConverter.ToSingle(buff, 2 * sizeof(float));
+        Debug.Log($"vect: {vect}");
+
+        OtherPlayer.transform.position = vect;
+
         //GameController.FrogHopTo(playerID, newPosition);
+    }
+
+    public void handleMovement(Vector3 position, Quaternion rotation)
+    {
+        byte[] array = new byte[12]; // 4 bytes per float
+
+        Buffer.BlockCopy(BitConverter.GetBytes(position.x), 0, array, 0, 4);
+        Buffer.BlockCopy(BitConverter.GetBytes(position.y), 0, array, 4, 4);
+        Buffer.BlockCopy(BitConverter.GetBytes(position.z), 0, array, 8, 4);
+
+        //Debug.Log($"Move {position.ToString()} and {rotation.ToString()}");
+        _client.SendEvent(MOVE_PLAYER_OP_CODE, array);
     }
 
     // game server notifies us that someone just won
@@ -305,7 +328,8 @@ public class RTSClient : MonoBehaviour
     private void OnDataReceived(object sender, DataReceivedEventArgs e)
     {
         string data = System.Text.Encoding.Default.GetString(e.Data);
-        Debug.Log($"[server-sent] OnDataReceived - Sender: {e.Sender} OpCode: {e.OpCode} data: {data}");
+        
+        Debug.Log($"[server-sent] OnDataReceived - Sender: {e.Sender} OpCode: {e.OpCode} data: {data} dataWhitoutEncoding: {e.Data}");
 
         switch (e.OpCode)
         {
@@ -358,19 +382,19 @@ public class RTSClient : MonoBehaviour
             case MOVE_PLAYER_OP_CODE:
                 {
                     
-                    int logicalPlayer = -1;
-                    float distance = 0.0f;
-                    string[] parts = data.Split(':');
-                    if (!int.TryParse(parts[0], out logicalPlayer))
-                    {
-                        Debug.LogWarning("Unable to parse logicalPlayer!");
-                    }
-                    if (!float.TryParse(parts[1], out distance))
-                    {
-                        Debug.LogWarning("Unable to parse distance!");
-                    }
-                    Debug.Log("Move");
-                    QForMainThread(NotifyMovePlayer, logicalPlayer, distance);
+                    //int logicalPlayer = -1;
+                    //float distance = 0.0f;
+                    //string[] parts = data.Split(':');
+                    //if (!int.TryParse(parts[0], out logicalPlayer))
+                    //{
+                    //    Debug.LogWarning("Unable to parse logicalPlayer!");
+                    //}
+                    //if (!float.TryParse(parts[1], out distance))
+                    //{
+                    //    Debug.LogWarning("Unable to parse distance!");
+                    //}
+                    //Debug.Log("Move");
+                    /*QForMainThread(*/NotifyMovePlayer(e.Data)/*, logicalPlayer, distance)*/;
                     break;
                 }
 
@@ -399,7 +423,30 @@ public class RTSClient : MonoBehaviour
             case OP_CODE_PLAYER_ACCEPTED:
                 {
                     Debug.Log($"Trying to show other player: {data}");
-                    OtherPlayer = (GameObject)Instantiate(PlayerPrefab, transform.position + new Vector3(0, 1, 0), transform.rotation);
+
+                    Vector3 spawnPosition = new Vector3(Random.Range(-8.0f, 8.0f), 1, Random.Range(-8.0f, 8.0f));
+                    Quaternion spawnRotation = Quaternion.Euler(0.0f, Random.Range(180.0f, 0f), 0);
+
+                    OtherPlayer = (GameObject)Instantiate(PlayerPrefab, spawnPosition, spawnRotation);
+                    break;
+                }
+            case OP_CODE_MORE_PLAYERS:{
+
+                    Debug.Log($"Trying to show the players instantiate before: {data}");
+
+                    Vector3 spawnPosition = new Vector3(Random.Range(-8.0f, 8.0f), 1, Random.Range(-8.0f, 8.0f));
+                    Quaternion spawnRotation = Quaternion.Euler(0.0f, Random.Range(180.0f, 0f), 0);
+                    if (Int32.TryParse(data, out int intdata))
+                    {
+                        for (int index = 0; index < intdata; index++)
+                        {
+                            //Debug.Log($"Instantiate player: {index}");
+                            OtherPlayer = (GameObject)Instantiate(PlayerPrefab, spawnPosition, spawnRotation);
+
+                        }
+
+                    }
+                        
                     break;
                 }
         }
@@ -497,7 +544,7 @@ public class RTSClient : MonoBehaviour
         {
             _simLastFrogHopTimer[playerID] = _hopTime;
             _simPlayerPositon[playerID] += _hopLength;
-            NotifyMovePlayer(playerID, _simPlayerPositon[playerID]);
+            //NotifyMovePlayer(playerID, _simPlayerPositon[playerID]);
             if (_simPlayerPositon[playerID] >= _finishPosition)
             {
                 NotifyWinnerDetermined(playerID, playerID == 0 ? 1 : 0);
